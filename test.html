@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Portail d'exploration des producteurs agricoles en circuit court</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.7.1/dist/leaflet.css" />
+  <style>
+    /* Styles CSS */
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f2f2f2;
+      color: #333333;
+      margin: 0;
+      padding: 0;
+    }
+
+    .container {
+      max-width: 1200px;
+      height:80vh;
+      margin: 0 auto;
+      padding: 20px;
+      display: flex;
+    }
+
+    .sidebar {
+      flex-basis: 30%;
+      margin-right: 20px;
+    }
+
+    .map-container {
+      flex-basis: 70%;
+    }
+
+    .search-bar {
+      margin-bottom: 20px;
+    }
+
+    .filters {
+      margin-bottom: 20px;
+    }
+
+    .filter-item {
+      margin-bottom: 10px;
+    }
+
+    .results {
+      display: flex;
+      height: 100%;
+      flex-wrap: wrap;
+      justify-content: space-between;
+    }
+
+    .results-item {
+      width: 100%;
+      height: 100%;
+      margin-bottom: 20px;
+      background-color: #f5f5f5;
+      border-radius: 4px;
+      padding: 20px;
+    }
+
+    .map {
+      width: 100%;
+      height: 100%;
+      margin-bottom: 20px;
+      background-color: #ffffff;
+      border-radius: 4px;
+    }
+
+    .primary {
+        background-color: #004f71;
+        color: #ffffff;
+    }
+
+    .secondary {
+    background-color: #00b2a9;
+    color: #ffffff;
+    }
+
+    .accent {
+    background-color: #ff8100;
+    color: #ffffff;
+    }
+
+    /* Styles supplémentaires pour s'inspirer du site inrae.fr */
+    h1, h2, h3 {
+        color: #004f71;
+    }
+
+    .search-bar input[type="text"] {
+        border: 2px solid #00b2a9;
+    }
+
+    .results-item h3 {
+    color: #004f71;
+    }
+
+    .search-bar button {
+        background-color: #004f71;
+        color: #ffffff;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .results-item h3 {
+      color: #4b9c9c;
+    }
+
+    .fullscreen-map {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 9999;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="sidebar">
+      <h2>Filtres</h2>
+
+      <div class="search-bar">
+        <input type="text" id="search-input" placeholder="Recherche globale...">
+        <button type="button" onclick="filterData()">Rechercher</button>
+      </div>
+
+      <div class="filters">
+        <h3>Type d'aliment</h3>
+        <div class="filter-item">
+          <input type="checkbox" id="filter-fruits">
+          <label for="filter-fruits">Fruits</label>
+        </div>
+        <div class="filter-item">
+          <input type="checkbox" id="filter-pains">
+          <label for="filter-pains">Pains</label>
+        </div>
+        <div class="filter-item">
+          <input type="checkbox" id="filter-fromages">
+          <label for="filter-fromages">Fromages</label>
+        </div>
+        <div class="filter-item">
+          <input type="checkbox" id="filter-miel">
+          <label for="filter-miel">Miel</label>
+        </div>
+        <div class="filter-item">
+          <input type="checkbox" id="filter-viandes">
+          <label for="filter-viandes">Viandes</label>
+        </div>
+      </div>
+    </div>
+
+    <div class="map-container">
+      <h1>Exploration des producteurs agricoles en circuit court</h1>
+
+      <div class="results">
+        <div class="results-item">
+          <div class="map" id="map"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/leaflet@1.7.1/dist/leaflet.js"></script>
+  <script>
+    // Données de test
+    const products = [
+      "Légumes",
+      "Fruits",
+      "Pains",
+      "Fromages",
+      "Miel",
+      "Viandes",
+      // Ajouter d'autres types d'aliments ici
+    ];
+
+    const producers = [
+    { name: "Jean Dupont", type: "Légumes", lat: 48.1871, lng: 6.436 },
+    { name: "Marie Martin", type: "Fruits", lat: 48.1376, lng: 6.457 },
+    { name: "Pierre Durand", type: "Pains", lat: 48.2279, lng: 6.447 },
+    { name: "Sophie Dubois", type: "Fromages", lat: 48.2374, lng: 6.428 },
+    { name: "Philippe Leroy", type: "Miel", lat: 48.1972, lng: 6.458 },
+    { name: "Isabelle Laurent", type: "Viandes", lat: 48.2071, lng: 6.429 },
+    // Ajouter d'autres producteurs ici
+    { name: "Lucie Leclerc", type: "Légumes", lat: 48.1773, lng: 6.446 },
+    { name: "Paul Lefebvre", type: "Fruits", lat: 48.1478, lng: 6.465 },
+    { name: "Claire Marchand", type: "Pains", lat: 48.2179, lng: 6.437 },
+    { name: "Antoine Martin", type: "Fromages", lat: 48.2476, lng: 6.427 },
+    { name: "Juliette Lambert", type: "Miel", lat: 48.2072, lng: 6.468 },
+    { name: "Nicolas Durand", type: "Viandes", lat: 48.2174, lng: 6.419 },
+    { name: "Caroline Leroux", type: "Légumes", lat: 48.1978, lng: 6.458 },
+    { name: "Thomas Bernard", type: "Fruits", lat: 48.1279, lng: 6.477 },
+    { name: "Catherine Girard", type: "Pains", lat: 48.2376, lng: 6.417 },
+    { name: "Alexandre Lemoine", type: "Fromages", lat: 48.2271, lng: 6.408 },
+    { name: "Emilie Lambert", type: "Miel", lat: 48.1872, lng: 6.458 },
+    { name: "Marc Dupuis", type: "Viandes", lat: 48.1974, lng: 6.399 },
+    { name: "Mathilde Royer", type: "Légumes", lat: 48.1579, lng: 6.487 },
+    { name: "François Martin", type: "Fruits", lat: 48.1374, lng: 6.496 },
+    { name: "Laura Dupuis", type: "Pains", lat: 48.2471, lng: 6.457 },
+    { name: "Hugo Leroux", type: "Fromages", lat: 48.2472, lng: 6.438 },
+    { name: "Émilie Lefevre", type: "Miel", lat: 48.2176, lng: 6.468 },
+    { name: "Benjamin Lambert", type: "Viandes", lat: 48.2279, lng: 6.449 },
+    { name: "Audrey Durand", type: "Légumes", lat: 48.2078, lng: 6.478 },
+    { name: "Simon Marchand", type: "Fruits", lat: 48.1572, lng: 6.487 },
+    { name: "Julie Martin", type: "Pains", lat: 48.2576, lng: 6.457 },
+    { name: "Louis Dubois", type: "Fromages", lat: 48.2671, lng: 6.438 },
+    { name: "Sophie Lambert", type: "Miel", lat: 48.2172, lng: 6.468 },
+    { name: "Charles Leroy", type: "Viandes", lat: 48.2274, lng: 6.429 }
+    ];
+
+    let map;
+    const markersLayer = L.layerGroup();
+
+    // Fonction pour filtrer les données en fonction des critères
+    function filterData() {
+        const searchInput = document.getElementById("search-input").value.toLowerCase();
+        const filteredTypes = Array.from(document.querySelectorAll('.filters input[type="checkbox"]:checked')).map(checkbox => checkbox.id.replace('filter-', ''));
+
+        const filteredProducers = producers.filter(producer => {
+            const name = producer.name.toLowerCase();
+            const type = producer.type.toLowerCase();
+
+            const matchesSearch = name.includes(searchInput);
+            const matchesType = filteredTypes.length === 0 || filteredTypes.includes(type);
+
+            return matchesSearch && matchesType;
+        });
+
+        // Supprimer toutes les anciennes marques de la carte
+        markersLayer.clearLayers();
+
+        filteredProducers.forEach(producer => {
+            L.marker([producer.lat, producer.lng]).addTo(markersLayer).bindPopup(producer.name);
+        });
+        }
+
+    // Initialisation de la carte
+    function initMap() {
+      map = L.map('map').setView([48.111, 6.433], 11); // Vosges, France
+
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: 'Map data © <a href="https://openstreetmap.org">OpenStreetMap</a> contributors',
+        maxZoom: 18,
+      }).addTo(map);
+
+      markersLayer.addTo(map);
+
+      producers.forEach(producer => {
+        L.marker([producer.lat, producer.lng]).addTo(markersLayer).bindPopup(producer.name);
+      });
+    }
+
+    initMap();
+
+    // Fonction pour initialiser les gestionnaires d'événements des cases à cocher des filtres
+    function initFilterHandlers() {
+        const checkboxes = document.querySelectorAll('.filters input[type="checkbox"]');
+        checkboxes.forEach(checkbox => {
+            checkbox.addEventListener('change', filterData);
+        });
+
+        const searchButton = document.querySelector('.search-bar button');
+        searchButton.addEventListener('click', filterData);
+    }
+
+    // Appel de la fonction d'initialisation des gestionnaires d'événements des filtres
+    initFilterHandlers();
+  </script>
+</body>
+</html>
